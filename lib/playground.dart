@@ -64,7 +64,6 @@ class Playground extends EditorUi implements GistContainer, GistController {
   GistStorage _gistStorage;
   MDCButton newButton;
   MDCButton resetButton;
-  MDCButton formatButton;
   MDCButton installButton;
   MDCButton samplesButton;
   MDCButton editorConsoleTab;
@@ -194,7 +193,7 @@ class Playground extends EditorUi implements GistContainer, GistController {
     resetButton = MDCButton(querySelector('#reset-button') as ButtonElement)
       ..onClick.listen((_) => _showResetDialog());
     formatButton = MDCButton(querySelector('#format-button') as ButtonElement)
-      ..onClick.listen((_) => _format());
+      ..onClick.listen((_) => format());
     installButton = MDCButton(querySelector('#install-button') as ButtonElement)
       ..onClick.listen((_) => _showInstallPage());
     samplesButton =
@@ -563,18 +562,6 @@ class Playground extends EditorUi implements GistContainer, GistController {
       docHandler.generateDoc([_rightDocContentElement, _leftDocPanel]);
     }, 'Documentation');
 
-    keys.bind(['alt-enter'], () {
-      editor.showCompletions(onlyShowFixes: true);
-    }, 'Quick fix');
-
-    keys.bind(['ctrl-space', 'macctrl-space'], () {
-      editor.showCompletions();
-    }, 'Completion');
-
-    keys.bind(['shift-ctrl-f', 'shift-macctrl-f'], () {
-      _format();
-    }, 'Format');
-
     document.onKeyUp.listen((e) {
       if (editor.completionActive ||
           DocHandler.cursorKeys.contains(e.keyCode)) {
@@ -757,34 +744,6 @@ class Playground extends EditorUi implements GistContainer, GistController {
       webOutputLabel.setAttr('hidden');
     }
     return success;
-  }
-
-  Future<void> _format() {
-    var originalSource = context.dartSource;
-    var input = SourceRequest()..source = originalSource;
-    formatButton.disabled = true;
-
-    var request = dartServices.format(input).timeout(serviceCallTimeout);
-    return request.then((FormatResponse result) {
-      busyLight.reset();
-      formatButton.disabled = false;
-
-      if (result.newString == null || result.newString.isEmpty) {
-        _logger.fine('Format returned null/empty result');
-        return;
-      }
-
-      if (originalSource != result.newString) {
-        editor.document.updateValue(result.newString);
-        showSnackbar('Format successful.');
-      } else {
-        showSnackbar('No formatting changes.');
-      }
-    }).catchError((e) {
-      busyLight.reset();
-      formatButton.disabled = false;
-      _logger.severe(e);
-    });
   }
 
   @override

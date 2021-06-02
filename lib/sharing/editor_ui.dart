@@ -8,6 +8,7 @@ import 'package:dart_pad/util/keymap.dart';
 import 'package:logging/logging.dart';
 import 'package:mdc_web/mdc_web.dart';
 import 'package:meta/meta.dart';
+import 'package:pedantic/pedantic.dart';
 
 import '../context.dart';
 import '../dart_pad.dart';
@@ -27,6 +28,7 @@ abstract class EditorUi {
   AnalysisResultsController analysisResultsController;
   Editor editor;
   MDCButton runButton;
+  MDCButton formatButton;
   ExecutionService executionService;
 
   /// The dialog box for information like Keyboard shortcuts.
@@ -46,6 +48,9 @@ abstract class EditorUi {
 
   bool get shouldAddFirebaseJs;
 
+  /// The editor containing user Dart code.
+  Editor get userCodeEditor => editor;
+
   void clearOutput();
 
   void showOutput(String message, {bool error = false});
@@ -57,6 +62,17 @@ abstract class EditorUi {
   @mustCallSuper
   void initKeyBindings() {
     keys.bind(['ctrl-enter', 'macctrl-enter'], handleRun, 'Run');
+    keys.bind(['shift-ctrl-f', 'shift-macctrl-f'], () {
+      format();
+    }, 'Format');
+    keys.bind(['alt-enter'], () {
+      userCodeEditor.showCompletions(onlyShowFixes: true);
+    }, 'Quick fix');
+    keys.bind(['ctrl-space', 'macctrl-space'], () {
+      if (userCodeEditor.hasFocus) {
+        userCodeEditor.showCompletions();
+      }
+    }, 'Completion');
     keys.bind(['shift-ctrl-/', 'shift-macctrl-/'], () {
       showKeyboardDialog();
     }, 'Keyboard Shortcuts');
@@ -226,6 +242,40 @@ abstract class EditorUi {
       return false;
     } finally {
       runButton.disabled = false;
+    }
+  }
+
+  void format() async {
+    var originalSource = userCodeEditor.document.value;
+    var input = SourceRequest()..source = originalSource;
+
+    try {
+      formatButton.disabled = true;
+      var result = await dartServices.format(input).timeout(serviceCallTimeout);
+
+      busyLight.reset();
+      formatButton.disabled = false;
+
+      if (result.newString == null || result.newString.isEmpty) {
+        logger.fine('Format returned null/empty result');
+        return;
+      }
+
+      // Check that the user hasn't edited the source since the format request.
+      if (originalSource == userCodeEditor.document.value) {
+        // And, check that the format request did modify the source code.
+        if (originalSource != result.newString) {
+          userCodeEditor.document.updateValue(result.newString);
+          showSnackbar('Format successful.');
+          unawaited(performAnalysis());
+        } else {
+          showSnackbar('No formatting changes.');
+        }
+      }
+    } catch (e) {
+      busyLight.reset();
+      formatButton.disabled = false;
+      logger.severe(e);
     }
   }
 

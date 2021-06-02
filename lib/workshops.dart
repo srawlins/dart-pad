@@ -57,7 +57,6 @@ class WorkshopUi extends EditorUi {
   DocHandler docHandler;
   @override
   ContextBase context;
-  MDCButton formatButton;
   TabExpandController tabExpandController;
   MDCButton closePanelButton;
   MDCButton editorUiOutputTab;
@@ -191,18 +190,6 @@ class WorkshopUi extends EditorUi {
       docHandler.generateDoc([_documentationElement]);
     }, 'Documentation');
 
-    keys.bind(['alt-enter'], () {
-      editor.showCompletions(onlyShowFixes: true);
-    }, 'Quick fix');
-
-    keys.bind(['ctrl-space', 'macctrl-space'], () {
-      editor.showCompletions();
-    }, 'Completion');
-
-    keys.bind(['shift-ctrl-f', 'shift-macctrl-f'], () {
-      _format();
-    }, 'Format');
-
     document.onKeyUp.listen((e) {
       if (editor.completionActive ||
           DocHandler.cursorKeys.contains(e.keyCode)) {
@@ -287,7 +274,7 @@ class WorkshopUi extends EditorUi {
         MDCButton(querySelector('#show-solution-btn') as ButtonElement)
           ..onClick.listen((_) => _handleShowSolution());
     formatButton = MDCButton(querySelector('#format-button') as ButtonElement)
-      ..onClick.listen((_) => _format());
+      ..onClick.listen((_) => format());
     closePanelButton = MDCButton(
         querySelector('#editor-panel-close-button') as ButtonElement,
         isIcon: true);
@@ -355,34 +342,6 @@ class WorkshopUi extends EditorUi {
     }
     throw ('Invalid parameters provided. Use either "webserver" or '
         '"gh_owner", "gh_repo", "gh_ref", and "gh_path"');
-  }
-
-  Future<void> _format() {
-    var originalSource = context.dartSource;
-    var input = SourceRequest()..source = originalSource;
-    formatButton.disabled = true;
-
-    var request = dartServices.format(input).timeout(serviceCallTimeout);
-    return request.then((FormatResponse result) {
-      busyLight.reset();
-      formatButton.disabled = false;
-
-      if (result.newString == null || result.newString.isEmpty) {
-        logger.fine('Format returned null/empty result');
-        return;
-      }
-
-      if (originalSource != result.newString) {
-        editor.document.updateValue(result.newString);
-        showSnackbar('Format successful.');
-      } else {
-        showSnackbar('No formatting changes.');
-      }
-    }).catchError((e) {
-      busyLight.reset();
-      formatButton.disabled = false;
-      logger.severe(e);
-    });
   }
 
   void _initOutputPanelTabs() {

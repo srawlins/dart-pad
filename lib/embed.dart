@@ -62,7 +62,6 @@ class Embed extends EditorUi {
   var _executionButtonCount = 0;
   MDCButton reloadGistButton;
   MDCButton installButton;
-  MDCButton formatButton;
   MDCButton showHintButton;
   MDCButton copyCodeButton;
   MDCButton openInDartPadButton;
@@ -94,6 +93,7 @@ class Embed extends EditorUi {
 
   CodeMirrorFactory editorFactory = codeMirrorFactory;
 
+  @override
   Editor userCodeEditor;
   Editor testEditor;
   Editor solutionEditor;
@@ -268,7 +268,7 @@ class Embed extends EditorUi {
 
     formatButton = MDCButton(querySelector('#format-code') as ButtonElement)
       ..onClick.listen(
-        (_) => _format(),
+        (_) => format(),
       );
     installButton = MDCButton(querySelector('#install-button') as ButtonElement)
       ..onClick.listen(
@@ -617,20 +617,6 @@ class Embed extends EditorUi {
 
   @override
   void initKeyBindings() {
-    keys.bind(['ctrl-space', 'macctrl-space'], () {
-      if (userCodeEditor.hasFocus) {
-        userCodeEditor.showCompletions();
-      }
-    }, 'Completion');
-
-    keys.bind(['alt-enter'], () {
-      userCodeEditor.showCompletions(onlyShowFixes: true);
-    }, 'Quick fix');
-
-    keys.bind(['shift-ctrl-f', 'shift-macctrl-f'], () {
-      _format();
-    }, 'Format');
-
     document.onKeyUp.listen(_handleAutoCompletion);
     super.initKeyBindings();
   }
@@ -856,32 +842,6 @@ class Embed extends EditorUi {
     } else {
       ga?.sendEvent('main', 'install-flutter');
       _hostWindow.location.href = 'https://flutter.dev/get-started/install';
-    }
-  }
-
-  void _format() async {
-    var originalSource = userCodeEditor.document.value;
-    var input = SourceRequest()..source = originalSource;
-
-    try {
-      formatButton.disabled = true;
-      var result = await dartServices.format(input).timeout(serviceCallTimeout);
-
-      busyLight.reset();
-      formatButton.disabled = false;
-
-      // Check that the user hasn't edited the source since the format request.
-      if (originalSource == userCodeEditor.document.value) {
-        // And, check that the format request did modify the source code.
-        if (originalSource != result.newString) {
-          userCodeEditor.document.updateValue(result.newString);
-          unawaited(performAnalysis());
-        }
-      }
-    } catch (e) {
-      busyLight.reset();
-      formatButton.disabled = false;
-      print(e);
     }
   }
 
